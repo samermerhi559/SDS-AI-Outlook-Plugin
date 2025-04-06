@@ -329,3 +329,16 @@ ASALocalRun/
 # MFractors (Xamarin productivity tool) working folder 
 .mfractor/
 /Finance-Common/OIC.DTO/ComplexFinanceDTOs
+
+# dependencies
+node_modules/
+
+# production build
+dist/
+
+# logs
+*.log
+
+# OS-specific
+.DS_Store
+Thumbs.db
