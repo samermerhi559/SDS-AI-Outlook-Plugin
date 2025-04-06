@@ -1,6 +1,7 @@
 {
   "name": "office-addin-taskpane-react",
   "version": "0.0.1",
+  "homepage": "https://samermerhi559.github.io/SDS-AI-Outlook-Plugin",
   "repository": {
     "type": "git",
     "url": "https://github.com/OfficeDev/Office-Addin-TaskPane-React.git"
@@ -23,7 +24,8 @@
     "start": "office-addin-debugging start manifest.xml",
     "stop": "office-addin-debugging stop manifest.xml",
     "validate": "office-addin-manifest validate manifest.xml",
-    "watch": "webpack --mode development --watch"
+    "watch": "webpack --mode development --watch",
+    "deploy": "gh-pages -d dist"
   },
   "dependencies": {
     "@fluentui/react-components": "^9.55.1",

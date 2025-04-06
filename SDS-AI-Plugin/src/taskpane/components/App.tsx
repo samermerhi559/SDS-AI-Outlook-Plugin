@@ -23,7 +23,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
   const listItems: HeroListItem[] = [
     {
       icon: <Ribbon24Regular />,
-      primaryText: "Achieve more with Office integration",
+      primaryText: "Achieve more with Office integration 2",
     },
     {
       icon: <LockOpen24Regular />,
