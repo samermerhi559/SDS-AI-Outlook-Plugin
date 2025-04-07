@@ -13,8 +13,10 @@
     "dev_server_port": 3000
   },
   "scripts": {
+    "generate-version": "node increment-version.js",
     "build": "webpack --mode production",
     "build:dev": "webpack --mode development",
+    "build:test": "webpack --env test --mode production",
     "dev-server": "webpack serve --mode development",
     "lint": "office-addin-lint check",
     "lint:fix": "office-addin-lint fix",
@@ -25,7 +27,8 @@
     "stop": "office-addin-debugging stop manifest.xml",
     "validate": "office-addin-manifest validate manifest.xml",
     "watch": "webpack --mode development --watch",
-    "deploy": "gh-pages -d dist"
+    "deploy": "npm run build && gh-pages -d dist",
+    "deploy:test": "npm run generate-version && npm run build:test && gh-pages -d dist"
   },
   "dependencies": {
     "@fluentui/react-components": "^9.55.1",
@@ -34,6 +37,7 @@
     "es6-promise": "^4.2.8",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-select": "^5.10.1",
     "regenerator-runtime": "^0.14.1"
   },
   "devDependencies": {

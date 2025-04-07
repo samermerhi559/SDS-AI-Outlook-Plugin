@@ -1,45 +1,29 @@
-import * as React from "react";
-import Header from "./Header";
-import HeroList, { HeroListItem } from "./HeroList";
-import TextInsertion from "./TextInsertion";
-import { makeStyles } from "@fluentui/react-components";
-import { Ribbon24Regular, LockOpen24Regular, DesignIdeas24Regular } from "@fluentui/react-icons";
-import { insertText } from "../taskpane";
+import React, { useState } from "react";
+import Login from "./Login";
+import InvoiceAISender from "./InvoiceAISender";
 
-interface AppProps {
-  title: string;
-}
+// Assume APP_SETTINGS is injected via Webpack and declared in a globals.d.ts file
+const appSettings = APP_SETTINGS;
 
-const useStyles = makeStyles({
-  root: {
-    minHeight: "100vh",
-  },
-});
+// Example encryption function
+const encrypt = (value: string): string => {
+  return btoa(value); // Simple Base64 "encryption" for demonstration
+};
 
-const App: React.FC<AppProps> = (props: AppProps) => {
-  const styles = useStyles();
-  // The list items are static and won't change at runtime,
-  // so this should be an ordinary const, not a part of state.
-  const listItems: HeroListItem[] = [
-    {
-      icon: <Ribbon24Regular />,
-      primaryText: "Achieve more with Office integration 2222",
-    },
-    {
-      icon: <LockOpen24Regular />,
-      primaryText: "Unlock features and functionality",
-    },
-    {
-      icon: <DesignIdeas24Regular />,
-      primaryText: "Create and visualize like a pro",
-    },
-  ];
+const App: React.FC = () => {
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+
+  const showLoggedInUI = (token: string): void => {
+    setAccessToken(token); // Save the access token and switch to InvoiceAISender
+  };
 
   return (
-    <div className={styles.root}>
-      <Header logo="assets/logo-filled.png" title={props.title} message="Welcome" />
-      <HeroList message="Discover what this add-in can do for you today!" items={listItems} />
-      <TextInsertion insertText={insertText} />
+    <div>
+      {accessToken ? (
+        <InvoiceAISender accessToken={accessToken} />
+      ) : (
+        <Login appSettings={appSettings} encrypt={encrypt} showLoggedInUI={showLoggedInUI} />
+      )}
     </div>
   );
 };

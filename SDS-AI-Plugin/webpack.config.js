@@ -1,22 +1,34 @@
 /* eslint-disable no-undef */
 
-const devCerts = require("office-addin-dev-certs");
+const path = require("path");
 const CopyWebpackPlugin = require("copy-webpack-plugin");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
+const fs = require("fs");
 const webpack = require("webpack");
 
-const urlDev = "https://localhost:3000/";
-const urlProd = "https://www.contoso.com/"; // CHANGE THIS TO YOUR PRODUCTION DEPLOYMENT LOCATION
+const versionFilePath = path.resolve(__dirname, "src", "version.json");
+const version = JSON.parse(fs.readFileSync(versionFilePath, "utf8")).version;
 
-async function getHttpsOptions() {
-  const httpsOptions = await devCerts.getHttpsServerOptions();
-  return { ca: httpsOptions.ca, key: httpsOptions.key, cert: httpsOptions.cert };
-}
+const appSettingsPath = path.resolve(__dirname, "appsettings.json");
+const appSettings = JSON.parse(fs.readFileSync(appSettingsPath, "utf8"));
 
-module.exports = async (env, options) => {
-  const dev = options.mode === "development";
-  const config = {
-    devtool: "source-map",
+module.exports = (env, options) => {
+  const mode = options.mode || "production"; // Default to production mode
+  const isTest = env && env.test; // Check if the test environment is set
+  const isDev = mode === "development";
+
+  console.log(`Building for mode: ${mode}, Test environment: ${isTest}`);
+
+  // Dynamically select the correct appsettings block
+  const selectedAppSettings = isTest
+    ? appSettings.test
+    : mode === "production"
+    ? appSettings.production
+    : appSettings.development;
+
+  return {
+    mode,
+    devtool: isDev ? "source-map" : false,
     entry: {
       polyfill: ["core-js/stable", "regenerator-runtime/runtime"],
       react: ["react", "react-dom"],
@@ -27,7 +39,11 @@ module.exports = async (env, options) => {
       commands: "./src/commands/commands.ts",
     },
     output: {
-      clean: true,
+      path: path.resolve(__dirname, "dist"),
+      publicPath: isTest
+        ? "/SDS-AI-Outlook-Plugin/" // Use a different public path for test
+        : "",
+      filename: "[name].js",
     },
     resolve: {
       extensions: [".ts", ".tsx", ".html", ".js"],
@@ -52,7 +68,7 @@ module.exports = async (env, options) => {
           use: "html-loader",
         },
         {
-          test: /\.(png|jpg|jpeg|ttf|woff|woff2|gif|ico)$/,
+          test: /\.(png|jpg|jpeg|ttf|woff|woff2|gif|ico|svg)$/,
           type: "asset/resource",
           generator: {
             filename: "assets/[name][ext][query]",
@@ -69,19 +85,8 @@ module.exports = async (env, options) => {
       new CopyWebpackPlugin({
         patterns: [
           {
-            from: "assets/*",
-            to: "assets/[name][ext][query]",
-          },
-          {
-            from: "manifest*.xml",
-            to: "[name]" + "[ext]",
-            transform(content) {
-              if (dev) {
-                return content;
-              } else {
-                return content.toString().replace(new RegExp(urlDev, "g"), urlProd);
-              }
-            },
+            from: "assets",
+            to: "assets",
           },
         ],
       }),
@@ -90,22 +95,10 @@ module.exports = async (env, options) => {
         template: "./src/commands/commands.html",
         chunks: ["polyfill", "commands"],
       }),
-      new webpack.ProvidePlugin({
-        Promise: ["es6-promise", "Promise"],
+      new webpack.DefinePlugin({
+        APP_VERSION: JSON.stringify(version), // Inject the version into the app
+        APP_SETTINGS: JSON.stringify(selectedAppSettings), // Inject the selected appsettings block
       }),
     ],
-    devServer: {
-      hot: true,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-      },
-      server: {
-        type: "https",
-        options: env.WEBPACK_BUILD || options.https !== undefined ? options.https : await getHttpsOptions(),
-      },
-      port: process.env.npm_package_config_dev_server_port || 3000,
-    },
   };
-
-  return config;
 };
