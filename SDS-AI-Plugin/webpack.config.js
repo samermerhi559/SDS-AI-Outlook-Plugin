@@ -37,6 +37,7 @@ module.exports = (env, options) => {
         dependOn: "react",
       },
       commands: "./src/commands/commands.ts",
+      dialog: "./src/taskpane/components/dialog.tsx", // Updated this line
     },
     output: {
       path: path.resolve(__dirname, "dist"),
@@ -46,7 +47,7 @@ module.exports = (env, options) => {
       filename: "[name].js",
     },
     resolve: {
-      extensions: [".ts", ".tsx", ".html", ".js"],
+      extensions: [".ts", ".tsx", ".js", ".jsx", ".html"], // Add .jsx to extensions
     },
     module: {
       rules: [
@@ -74,6 +75,24 @@ module.exports = (env, options) => {
             filename: "assets/[name][ext][query]",
           },
         },
+        {
+          test: /\.(js|jsx)$/,
+          include: [
+            path.resolve(__dirname, "src"),
+            path.resolve(__dirname, "tools") // Include the tools folder
+          ],
+          exclude: /node_modules/,
+          use: {
+            loader: "babel-loader",
+            options: {
+              presets: ["@babel/preset-env", "@babel/preset-react"],
+            },
+          },
+        },
+        {
+          test: /\.css$/,
+          use: ["style-loader", "css-loader"], // Loaders for CSS files
+        },
       ],
     },
     plugins: [
@@ -88,8 +107,16 @@ module.exports = (env, options) => {
             from: "assets",
             to: "assets",
           },
+          {
+            from: "tools",
+            to: "tools",
+          },{
+           from: "src/pdf.worker.min.mjs",
+           to: "src/pdf.worker.min.mjs"
+          }
         ],
       }),
+     
       new HtmlWebpackPlugin({
         filename: "commands.html",
         template: "./src/commands/commands.html",

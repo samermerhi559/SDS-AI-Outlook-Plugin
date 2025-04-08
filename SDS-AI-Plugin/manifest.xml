@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0" xmlns:mailappor="http://schemas.microsoft.com/office/mailappversionoverrides/1.0" xsi:type="MailApp">
   <Id>8ffa0ab2-1cff-4478-9f16-067185bfca75</Id>
-  <Version>1.0.0.3</Version>
+  <Version>1.0.0.4</Version>
   <ProviderName>SDS</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="SDS-AI-Plugin"/>
@@ -24,7 +24,7 @@
     <Form xsi:type="ItemRead">
       <DesktopSettings>
         <SourceLocation DefaultValue="https://samermerhi559.github.io/SDS-AI-Outlook-Plugin/taskpane.html"/>
-        <RequestedHeight>250</RequestedHeight>
+        <RequestedHeight>450</RequestedHeight>
       </DesktopSettings>
     </Form>
   </FormSettings>
@@ -43,8 +43,6 @@
         <Host xsi:type="MailHost">
           <DesktopFormFactor>
             <FunctionFile resid="Commands.Url"/>
-
-            <!-- Compose Command -->
             <ExtensionPoint xsi:type="MessageComposeCommandSurface">
               <OfficeTab id="TabDefault">
                 <Group id="msgComposeGroup">
@@ -82,8 +80,6 @@
                 </Group>
               </OfficeTab>
             </ExtensionPoint>
-
-            <!-- Read Command -->
             <ExtensionPoint xsi:type="MessageReadCommandSurface">
               <OfficeTab id="TabDefault">
                 <Group id="msgReadGroup">
@@ -118,6 +114,7 @@
         <bt:Urls>
           <bt:Url id="Commands.Url" DefaultValue="https://samermerhi559.github.io/SDS-AI-Outlook-Plugin/commands.html"/>
           <bt:Url id="Taskpane.Url" DefaultValue="https://samermerhi559.github.io/SDS-AI-Outlook-Plugin/taskpane.html"/>
+          <bt:Url id="Dialog.Url" DefaultValue="https://samermerhi559.github.io/SDS-AI-Outlook-Plugin/tools/dialog.html"/>
         </bt:Urls>
         <bt:ShortStrings>
           <bt:String id="GroupLabel" DefaultValue="Contoso Add-in"/>
