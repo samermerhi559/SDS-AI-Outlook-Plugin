@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom";
-import InvoiceAISender, { Attachment } from "./InvoiceAISender";
+import { Attachment } from "../types/Attachment";
+import InvoiceAISender from "./InvoiceAISender"; // Adjust the import path as necessary
 
 // Extract the accessToken from the query string
 const urlParams = new URLSearchParams(window.location.search);

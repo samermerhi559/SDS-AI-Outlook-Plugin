@@ -2,7 +2,7 @@ import * as React from "react";
 import { createRoot } from "react-dom/client";
 import App from "./components/App";
 import { FluentProvider, webLightTheme } from "@fluentui/react-components";
-import "../global.css"; // Import the global CSS file
+import "../styles/global.css"; // Import the global CSS file
 
 /* global document, Office, module, require, HTMLElement */
 

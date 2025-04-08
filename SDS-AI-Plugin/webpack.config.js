@@ -113,6 +113,10 @@ module.exports = (env, options) => {
           },{
            from: "src/pdf.worker.min.mjs",
            to: "src/pdf.worker.min.mjs"
+          },
+          {
+            from: "src/styles",
+            to: "src/styles",
           }
         ],
       }),

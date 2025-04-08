@@ -1,0 +1,137 @@
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(0, 120, 212, 0.3);
+  border-top: 4px solid #0078d4;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 10px auto;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes aiPulse {
+  0% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 0px #0078d4);
+  }
+  50% {
+    transform: scale(1.05);
+    filter: drop-shadow(0 0 10px #0078d4);
+  }
+  100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 0px #0078d4);
+  }
+}
+
+.ai-bot-animated {
+  animation: aiPulse 2s ease-in-out infinite;
+}
+
+/* global.css */
+
+.invoice-container {
+  display: flex;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+.invoice-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.8);
+  z-index: 10;
+  display: flex;
+  -ms-flex-direction: column;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.ai-bot-animated {
+  width: 160px;
+  margin-bottom: 16px;
+  animation: aiPulse 2s ease-in-out infinite;
+}
+
+@keyframes aiPulse {
+  0% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 0px #0078d4);
+  }
+  50% {
+    transform: scale(1.05);
+    filter: drop-shadow(0 0 10px #0078d4);
+  }
+  100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 0px #0078d4);
+  }
+}
+
+.scanner-effect {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  z-index: 9;
+  background-image:
+    repeating-linear-gradient(0deg, rgba(0, 120, 212, 0.05) 0px, rgba(0, 120, 212, 0.05) 2px, transparent 2px, transparent 4px),
+    repeating-linear-gradient(90deg, rgba(0, 120, 212, 0.05) 0px, rgba(0, 120, 212, 0.05) 2px, transparent 2px, transparent 4px);
+  background-size: 200% 200%;
+  animation: scannerGrid 2s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes scannerGrid {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: -100% -100%;
+  }
+}
+
+.invoice-sidebar {
+  -ms-flex: 0 0 40%;
+  flex: 0 0 40%;
+  padding: 20px;
+  border-right: 1px solid #ccc;
+  overflow: hidden;
+}
+
+.invoice-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.invoice-response {
+  padding: 10px;
+  background-color: #f1f1f1;
+  border-radius: 6px;
+  margin-top: 10px;
+  font-family: monospace;
+}
+
+.invoice-preview-panel {
+  -ms-flex: 0 0 60%;
+  flex: 0 0 60%;
+  padding: 20px;
+  overflow: hidden;
+  background-color: #f9f9f9;
+}
