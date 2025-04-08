@@ -6,16 +6,33 @@ import AttachmentFilterToggle from "./AttachmentFilterToggle";
 import AttachmentTable from "./AttachmentTable";
 import FilePreview from "./FilePreview";
 import "../../styles/global.css";
+
 interface InvoiceAISenderProps {
   accessToken: string | null;
   initialAttachments?: Attachment[];
+}
+
+interface InvoiceFields {
+  invoiceNumber: string;
+  invoiceCurrency: string;
+  invoiceDate: string;
+  taxAmount: number;
+  totalAmount: number;
+  dueDate: string;
+  invoiceIssuerNameOnly: string;
+  invoiceTitle: string;
+  invoiceDetailSummary: string;
+  voucherTaxCode: string;
+  accountNumber: string;
+  fileNumber: string;
+  costCenter: string;
 }
 
 const InvoiceAISender: React.FC<InvoiceAISenderProps> = ({ accessToken, initialAttachments = [] }) => {
   const initialized = useRef(false);
   const [showAll, setShowAll] = useState(false);
   const [selectedAttachment, setSelectedAttachment] = useState<Attachment | null>(null);
-  const [responseJSON, setResponseJSON] = useState("");
+  const [responseFields, setResponseFields] = useState<InvoiceFields | null>(null);
   const [sending, setSending] = useState(false);
 
   const {
@@ -57,7 +74,7 @@ const InvoiceAISender: React.FC<InvoiceAISenderProps> = ({ accessToken, initialA
         body: JSON.stringify(payload),
       });
       const data = await response.json();
-      setResponseJSON(JSON.stringify(data, null, 2));
+      setResponseFields(data);
     } catch (err) {
       console.error("Error sending to ERP", err);
     } finally {
@@ -66,6 +83,8 @@ const InvoiceAISender: React.FC<InvoiceAISenderProps> = ({ accessToken, initialA
   };
 
   const botIconPath = "/SDS-AI-Outlook-Plugin/assets/ai-bot-icon.png";
+  const currencies = ["USD", "EUR", "CHF", "GBP", "TND", "NZD", "AOA", "CFA", "GYD", "ZAR", "NAD"];
+  const taxCodes = ["0", "10", "19", "20"];
 
   return (
     <div className="invoice-container">
@@ -75,7 +94,6 @@ const InvoiceAISender: React.FC<InvoiceAISenderProps> = ({ accessToken, initialA
             <img src={botIconPath} alt="AI Bot" className="ai-bot-animated" />
             {loading ? "Loading attachments..." : "Talking to my AI brain..."}
           </div>
-
           <div className="scanner-effect" />
         </>
       )}
@@ -85,15 +103,50 @@ const InvoiceAISender: React.FC<InvoiceAISenderProps> = ({ accessToken, initialA
           <h3>Email Attachments</h3>
           <AttachmentFilterToggle showAll={showAll} onToggle={setShowAll} />
         </div>
+
         <AttachmentTable
           attachments={filteredAttachments}
           onSend={sendToERP}
           sending={sending}
         />
-        {responseJSON && (
-          <div className="invoice-response">
-            <strong>AI Result:</strong>
-            <div>{responseJSON}</div>
+
+        {responseFields && (
+          <div className="invoice-fields">
+            <div className="field-pair">
+              <input value={responseFields.invoiceNumber || ""} readOnly placeholder="Invoice Number" />
+              <input value={responseFields.invoiceIssuerNameOnly || ""} readOnly placeholder="Issuer Name" />
+            </div>
+            <div className="field-pair">
+              <input value={responseFields.invoiceDate?.slice(0, 10) || ""} readOnly placeholder="Invoice Date" type="date" />
+              <input value={responseFields.dueDate?.slice(0, 10) || ""} readOnly placeholder="Due Date" type="date" />
+            </div>
+            <div className="field-pair">
+              <input value={responseFields.invoiceTitle || ""} readOnly placeholder="Invoice Title" />
+              <input value={responseFields.invoiceDetailSummary || ""} readOnly placeholder="Summary" />
+            </div>
+            <div className="field-pair">
+              <select value={responseFields.invoiceCurrency || ""} disabled aria-label="Invoice Currency">
+                {currencies.map((cur) => (
+                  <option key={cur} value={cur}>{cur}</option>
+                ))}
+              </select>
+              <input value={responseFields.totalAmount.toFixed(2)} readOnly placeholder="Total Amount" type="number" />
+            </div>
+            <div className="field-pair">
+              <select value={responseFields.voucherTaxCode || ""} disabled aria-label="Voucher Tax Code">
+                {taxCodes.map((code) => (
+                  <option key={code} value={code}>{code}%</option>
+                ))}
+              </select>
+              <input value={responseFields.taxAmount.toFixed(2)} readOnly placeholder="Tax Amount" type="number" />
+            </div>
+            <div className="field-pair">
+              <input value={responseFields.accountNumber || ""} readOnly placeholder="Account Number" />
+              <input value={responseFields.fileNumber || ""} readOnly placeholder="File Number" />
+            </div>
+            <div className="field-pair">
+              <input value={responseFields.costCenter || ""} readOnly placeholder="Cost Center" />
+            </div>
           </div>
         )}
       </div>

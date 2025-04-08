@@ -51,7 +51,7 @@
   background-color: rgba(255, 255, 255, 0.8);
   z-index: 10;
   display: flex;
-  -ms-flex-direction: column;
+  -ms-flex-direction: column; /* IE 10+ */
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -134,4 +134,48 @@
   padding: 20px;
   overflow: hidden;
   background-color: #f9f9f9;
+}
+
+.invoice-fields {
+  display: flex;
+  -ms-flex-direction: column; /* IE 10+ */
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.field-pair {
+  display: flex;
+  gap: 10px;
+}
+
+.field-pair input,
+.field-pair select {
+  -ms-flex: 1; /* IE 10+ */
+  flex: 1;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.field-pair input[readonly],
+.field-pair select:disabled {
+  background-color: #f5f5f5;
+  color: #333;
+}
+
+.field-pair input[type="date"] {
+  min-width: 0;
+}
+
+.invoice-fields input:focus,
+.invoice-fields select:focus {
+  outline: 2px solid #0078d4;
+  background-color: #fff;
+}
+
+.invoice-fields input::placeholder {
+  color: #aaa;
+  font-style: italic;
 }
