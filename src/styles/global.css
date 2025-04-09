@@ -117,6 +117,35 @@ button:hover {
   background-color: #005fa3;
 }
 
+.invoice-container {
+  display: flex;
+  -ms-flex-direction: row;
+  flex-direction: row;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+.invoice-sidebar {
+  -ms-flex: 0 0 40%;
+  flex: 0 0 40%;
+  padding: 20px;
+  border-right: 1px solid #ccc;
+  overflow-y: auto;
+  max-height: 100vh;
+  box-sizing: border-box;
+}
+
+.invoice-preview-panel {
+  -ms-flex: 0 0 60%;
+  flex: 0 0 60%;
+  padding: 20px;
+  overflow: auto;
+  background-color: #f9f9f9;
+  box-sizing: border-box;
+}
+
 .invoice-fields .field-pair {
   display: flex;
   gap: 10px;
