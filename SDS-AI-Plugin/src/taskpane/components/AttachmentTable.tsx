@@ -1,53 +1,38 @@
-// components/AttachmentTable.tsx
+// AttachmentTable.tsx
 import React from "react";
 import { Attachment } from "../types/Attachment";
 
-interface AttachmentTableProps {
+interface Props {
   attachments: Attachment[];
   onSend: (attachment: Attachment) => void;
   sending: boolean;
 }
 
-const AttachmentTable: React.FC<AttachmentTableProps> = ({ attachments, onSend, sending }) => {
+const AttachmentTable: React.FC<Props> = ({ attachments, onSend, sending }) => {
   return (
-    <div>
-      {attachments.length > 0 ? (
-        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "20px" }}>
-          <thead>
-            <tr>
-              <th style={{ border: "1px solid #ccc", padding: "8px" }}>File Name</th>
-              <th style={{ border: "1px solid #ccc", padding: "8px" }}>File Size (KB)</th>
-              <th style={{ border: "1px solid #ccc", padding: "8px" }}>Action</th>
+    <div className="attachment-table">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Size</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {attachments.map((att, index) => (
+            <tr key={index}>
+              <td>{att.name}</td>
+              <td>{(att.size / 1024).toFixed(2)} KB</td>
+              <td>
+                <button onClick={() => onSend(att)} disabled={sending}>
+                  {sending ? "Sending..." : "Send to ERP"}
+                </button>
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {attachments.map((attachment) => (
-              <tr key={attachment.id}>
-                <td style={{ border: "1px solid #ccc", padding: "8px" }}>{attachment.name}</td>
-                <td style={{ border: "1px solid #ccc", padding: "8px" }}>{(attachment.size / 1024).toFixed(2)}</td>
-                <td style={{ border: "1px solid #ccc", padding: "8px" }}>
-                  <button
-                    onClick={() => onSend(attachment)}
-                    disabled={sending}
-                    style={{
-                      padding: "5px 10px",
-                      backgroundColor: sending ? "#999" : "#0078d4",
-                      color: "#fff",
-                      border: "none",
-                      borderRadius: "4px",
-                      cursor: sending ? "not-allowed" : "pointer",
-                    }}
-                  >
-                    {sending ? "Sending..." : "Send to ERP"}
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : (
-        <p>No attachments found.</p>
-      )}
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 };

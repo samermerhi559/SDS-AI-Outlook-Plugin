@@ -1,4 +1,4 @@
-// components/InvoiceAISender.tsx
+// InvoiceAISender.tsx
 import React, { useRef, useState, useEffect } from "react";
 import { Attachment } from "../types/Attachment";
 import { useAttachments } from "./useAttachments";
@@ -92,61 +92,73 @@ const InvoiceAISender: React.FC<InvoiceAISenderProps> = ({ accessToken, initialA
         <>
           <div className="invoice-overlay">
             <img src={botIconPath} alt="AI Bot" className="ai-bot-animated" />
-            {loading ? "Loading attachments..." : "Talking to my AI brain..."}
+            {loading ? (
+                          "Loading attachments..."
+                        ) : (
+                          <>
+                            <span>Analyzing content...</span>
+                            <span>Just a moment...</span>
+                          </>
+                        )}
           </div>
           <div className="scanner-effect" />
         </>
       )}
 
-      <div className="invoice-sidebar">
+      <div className="invoice-sidebar" style={{ maxWidth: 600 }}>
         <div className="invoice-header">
           <h3>Email Attachments</h3>
           <AttachmentFilterToggle showAll={showAll} onToggle={setShowAll} />
         </div>
 
-        <AttachmentTable
-          attachments={filteredAttachments}
-          onSend={sendToERP}
-          sending={sending}
-        />
+        <div className="attachment-table">
+          <AttachmentTable
+            attachments={filteredAttachments}
+            onSend={sendToERP}
+            sending={sending}
+          />
+        </div>
 
         {responseFields && (
           <div className="invoice-fields">
-            <div className="field-pair">
-              <input value={responseFields.invoiceNumber || ""} readOnly placeholder="Invoice Number" />
-              <input value={responseFields.invoiceIssuerNameOnly || ""} readOnly placeholder="Issuer Name" />
-            </div>
-            <div className="field-pair">
-              <input value={responseFields.invoiceDate?.slice(0, 10) || ""} readOnly placeholder="Invoice Date" type="date" />
-              <input value={responseFields.dueDate?.slice(0, 10) || ""} readOnly placeholder="Due Date" type="date" />
-            </div>
-            <div className="field-pair">
-              <input value={responseFields.invoiceTitle || ""} readOnly placeholder="Invoice Title" />
-              <input value={responseFields.invoiceDetailSummary || ""} readOnly placeholder="Summary" />
-            </div>
-            <div className="field-pair">
-              <select value={responseFields.invoiceCurrency || ""} disabled aria-label="Invoice Currency">
-                {currencies.map((cur) => (
-                  <option key={cur} value={cur}>{cur}</option>
+            {[
+              ["invoiceNumber", "invoiceIssuerNameOnly"],
+              ["invoiceDate", "dueDate"],
+              ["invoiceTitle", "invoiceDetailSummary"],
+              ["invoiceCurrency", "totalAmount"],
+              ["voucherTaxCode", "taxAmount"],
+              ["accountNumber", "fileNumber"],
+              ["costCenter"]
+            ].map((row, index) => (
+              <div className="field-pair" key={index}>
+                {row.map((field) => (
+                  <div key={field}>
+                    <label>{field.replace(/([A-Z])/g, " $1").replace(/^\w/, c => c.toUpperCase())}</label>
+                    {field === "invoiceCurrency" ? (
+                      <select value={responseFields.invoiceCurrency || ""} disabled aria-label="Invoice Currency">
+                        {currencies.map((cur) => (
+                          <option key={cur} value={cur}>{cur}</option>
+                        ))}
+                      </select>
+                    ) : field === "voucherTaxCode" ? (
+                      <select value={responseFields.voucherTaxCode || ""} disabled aria-label="Tax Code">
+                        {taxCodes.map((code) => (
+                          <option key={code} value={code}>{code}%</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type={field.toLowerCase().includes("date") ? "date" : field.toLowerCase().includes("amount") ? "number" : "text"}
+                        value={responseFields[field as keyof InvoiceFields] as string | number || ""}
+                        readOnly
+                        placeholder={`Enter ${field.replace(/([A-Z])/g, " $1").toLowerCase()}`}
+                        title={field.replace(/([A-Z])/g, " $1").replace(/^\w/, c => c.toUpperCase())}
+                      />
+                    )}
+                  </div>
                 ))}
-              </select>
-              <input value={responseFields.totalAmount.toFixed(2)} readOnly placeholder="Total Amount" type="number" />
-            </div>
-            <div className="field-pair">
-              <select value={responseFields.voucherTaxCode || ""} disabled aria-label="Voucher Tax Code">
-                {taxCodes.map((code) => (
-                  <option key={code} value={code}>{code}%</option>
-                ))}
-              </select>
-              <input value={responseFields.taxAmount.toFixed(2)} readOnly placeholder="Tax Amount" type="number" />
-            </div>
-            <div className="field-pair">
-              <input value={responseFields.accountNumber || ""} readOnly placeholder="Account Number" />
-              <input value={responseFields.fileNumber || ""} readOnly placeholder="File Number" />
-            </div>
-            <div className="field-pair">
-              <input value={responseFields.costCenter || ""} readOnly placeholder="Cost Center" />
-            </div>
+              </div>
+            ))}
           </div>
         )}
       </div>

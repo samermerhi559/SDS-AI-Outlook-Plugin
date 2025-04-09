@@ -1,7 +1,9 @@
+// Login.tsx
 import React, { useState, useEffect, useMemo } from "react";
 import Select from "react-select";
 import Footer from "./Footer";
-import { CustomSingleValue, CustomOption } from "./Memo"; // Adjust the import path as necessary
+import { CustomSingleValue, CustomOption } from "./Memo";
+import "../../styles/global.css";
 
 interface Option {
   value: string;
@@ -71,16 +73,17 @@ const Login: React.FC<LoginProps> = ({ appSettings, encrypt, showLoggedInUI }) =
       }
 
       const encryptedToken = encrypt(token);
-      showLoggedInUI(encryptedToken); // Pass the encrypted token to App
+      showLoggedInUI(encryptedToken);
     } catch (err) {
       setError("An error occurred during login. Please try again.");
     }
   };
 
   return (
-    <div style={{ maxWidth: "400px", margin: "0 auto", padding: "20px", border: "1px solid #ccc", borderRadius: "8px" }}>
-      <h2>Login</h2>
-      <div>
+    <div className="login-container">
+      <h2 className="login-title">Sign in to Invoice AI</h2>
+
+      <div className="login-field">
         <label htmlFor="agency-select">Select Agency:</label>
         <Select
           id="agency-select"
@@ -90,30 +93,35 @@ const Login: React.FC<LoginProps> = ({ appSettings, encrypt, showLoggedInUI }) =
           components={{ SingleValue: CustomSingleValue, Option: CustomOption }}
         />
       </div>
-      <div>
-        <label htmlFor="username">User Name:</label>
+
+      <div className="login-field">
+        <label htmlFor="username">Username</label>
         <input
           id="username"
           type="text"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
-          style={{ width: "100%", marginBottom: "10px" }}
+          placeholder="Enter your username"
         />
       </div>
-      <div>
-        <label htmlFor="password">Password:</label>
+
+      <div className="login-field">
+        <label htmlFor="password">Password</label>
         <input
           id="password"
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          style={{ width: "100%", marginBottom: "10px" }}
+          placeholder="Enter your password"
         />
       </div>
+
       {error && <p style={{ color: "red" }}>{error}</p>}
-      <button onClick={handleLogin} style={{ width: "100%", padding: "10px", backgroundColor: "#0078d4", color: "#fff", border: "none", borderRadius: "4px" }}>
-        Log In
-      </button>
+
+      <div style={{ textAlign: "center" }}>
+        <button onClick={handleLogin}>Log In</button>
+      </div>
+
       <Footer />
     </div>
   );
