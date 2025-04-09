@@ -24,6 +24,7 @@ const Login: React.FC<LoginProps> = ({ appSettings, encrypt, showLoggedInUI }) =
   const [selectedAgency, setSelectedAgency] = useState<Option | null>(null);
   const [username, setUsername] = useState<string>("");
   const [password, setPassword] = useState<string>("");
+  const [token, setToken] = useState<string | null>(null);
   const [error, setError] = useState<string>("");
 
   const options: Option[] = useMemo(
@@ -41,6 +42,19 @@ const Login: React.FC<LoginProps> = ({ appSettings, encrypt, showLoggedInUI }) =
       setSelectedAgency(options[0]);
     }
   }, [options]);
+
+  useEffect(() => {
+    Office.onReady(() => {
+      const savedToken = Office.context.roamingSettings.get("accessToken");
+      const savedUser = Office.context.roamingSettings.get("userName");
+
+      if (savedToken && savedUser) {
+        setToken(savedToken);
+        setUsername(savedUser);
+        showLoggedInUI(savedToken);
+      }
+    });
+  }, [showLoggedInUI]);
 
   const handleLogin = async () => {
     if (!selectedAgency || !username || !password) {
@@ -65,14 +79,20 @@ const Login: React.FC<LoginProps> = ({ appSettings, encrypt, showLoggedInUI }) =
       });
 
       const result = await response.json();
-      const token = result?.token?.access_token;
+      const receivedToken = result?.token?.access_token;
 
-      if (!token) {
+      if (!receivedToken) {
         setError("Login failed. Please check your credentials.");
         return;
       }
 
-      const encryptedToken = encrypt(token);
+      const encryptedToken = encrypt(receivedToken);
+
+      Office.context.roamingSettings.set("accessToken", encryptedToken);
+      Office.context.roamingSettings.set("userName", username);
+      Office.context.roamingSettings.saveAsync();
+
+      setToken(encryptedToken);
       showLoggedInUI(encryptedToken);
     } catch (err) {
       setError("An error occurred during login. Please try again.");
@@ -81,46 +101,54 @@ const Login: React.FC<LoginProps> = ({ appSettings, encrypt, showLoggedInUI }) =
 
   return (
     <div className="login-container">
-      <h2 className="login-title">Sign in to Invoice AI</h2>
+      {!token ? (
+        <>
+          <h2 className="login-title">Sign in to Invoice AI</h2>
 
-      <div className="login-field">
-        <label htmlFor="agency-select">Select Agency:</label>
-        <Select
-          id="agency-select"
-          value={selectedAgency}
-          onChange={(option) => setSelectedAgency(option as Option)}
-          options={options}
-          components={{ SingleValue: CustomSingleValue, Option: CustomOption }}
-        />
-      </div>
+          <div className="login-field">
+            <label htmlFor="agency-select">Select Agency:</label>
+            <Select
+              id="agency-select"
+              value={selectedAgency}
+              onChange={(option) => setSelectedAgency(option as Option)}
+              options={options}
+              components={{ SingleValue: CustomSingleValue, Option: CustomOption }}
+            />
+          </div>
 
-      <div className="login-field">
-        <label htmlFor="username">Username</label>
-        <input
-          id="username"
-          type="text"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          placeholder="Enter your username"
-        />
-      </div>
+          <div className="login-field">
+            <label htmlFor="username">Username</label>
+            <input
+              id="username"
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Enter your username"
+            />
+          </div>
 
-      <div className="login-field">
-        <label htmlFor="password">Password</label>
-        <input
-          id="password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="Enter your password"
-        />
-      </div>
+          <div className="login-field">
+            <label htmlFor="password">Password</label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter your password"
+            />
+          </div>
 
-      {error && <p style={{ color: "red" }}>{error}</p>}
+          {error && <p style={{ color: "red" }}>{error}</p>}
 
-      <div style={{ textAlign: "center" }}>
-        <button onClick={handleLogin}>Log In</button>
-      </div>
+          <div style={{ textAlign: "center" }}>
+            <button onClick={handleLogin}>Log In</button>
+          </div>
+        </>
+      ) : (
+        <div className="login-success">
+          ✅ You are now connected as <strong>{username}</strong>.
+        </div>
+      )}
 
       <Footer />
     </div>
