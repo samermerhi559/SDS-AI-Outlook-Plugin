@@ -29,8 +29,8 @@ const Login: React.FC<LoginProps> = ({ appSettings, encrypt, showLoggedInUI }) =
 
   const options: Option[] = useMemo(
     () =>
-      Object.entries(appSettings.AuthenticationUrls).map(([agency, url]) => ({
-        value: url,
+      Object.entries(appSettings.AuthenticationUrls).map(([agency, baseUrl]) => ({
+        value: `${baseUrl}/login`, // Append /login dynamically
         label: agency,
         flag: appSettings.AgencyFlags[agency],
       })),
@@ -62,7 +62,7 @@ const Login: React.FC<LoginProps> = ({ appSettings, encrypt, showLoggedInUI }) =
       return;
     }
 
-    const url = selectedAgency.value;
+    const url = selectedAgency.value; // Use the dynamically appended URL
     const payload = {
       userName: username,
       password: password,
@@ -79,24 +79,42 @@ const Login: React.FC<LoginProps> = ({ appSettings, encrypt, showLoggedInUI }) =
       });
 
       const result = await response.json();
-      const receivedToken = result?.token?.access_token;
+      const receivedAccessToken = result?.token?.access_token;
+      const receivedRefreshToken = result?.token?.refresh_token;
 
-      if (!receivedToken) {
+      if (!receivedAccessToken || !receivedRefreshToken) {
         setError("Login failed. Please check your credentials.");
         return;
       }
 
-      const encryptedToken = encrypt(receivedToken);
+      const encryptedAccessToken = encrypt(receivedAccessToken);
+      const encryptedRefreshToken = encrypt(receivedRefreshToken);
 
-      Office.context.roamingSettings.set("accessToken", encryptedToken);
+      // Save tokens in roaming settings
+      Office.context.roamingSettings.set("accessToken", encryptedAccessToken);
+      Office.context.roamingSettings.set("refreshToken", encryptedRefreshToken);
       Office.context.roamingSettings.set("userName", username);
       Office.context.roamingSettings.saveAsync();
 
-      setToken(encryptedToken);
-      showLoggedInUI(encryptedToken);
+      setToken(encryptedAccessToken);
+      showLoggedInUI(encryptedAccessToken);
     } catch (err) {
       setError("An error occurred during login. Please try again.");
     }
+  };
+
+  const handleLogout = () => {
+    // Clear tokens from roaming settings
+    Office.context.roamingSettings.remove("accessToken");
+    Office.context.roamingSettings.remove("refreshToken");
+    Office.context.roamingSettings.remove("userName");
+    Office.context.roamingSettings.saveAsync();
+
+    // Clear local state
+    setToken(null);
+    setUsername("");
+    setPassword("");
+    setSelectedAgency(null);
   };
 
   return (
@@ -146,7 +164,8 @@ const Login: React.FC<LoginProps> = ({ appSettings, encrypt, showLoggedInUI }) =
         </>
       ) : (
         <div className="login-success">
-          ✅ You are now connected as <strong>{username}</strong>.
+          <p>✅ You are now connected as <strong>{username}</strong>.</p>
+          <button onClick={handleLogout}>Log Out</button>
         </div>
       )}
 

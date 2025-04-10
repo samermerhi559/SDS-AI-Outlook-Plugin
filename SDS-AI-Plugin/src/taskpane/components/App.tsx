@@ -17,9 +17,11 @@ const App: React.FC = () => {
     // Ensure Office.js is ready before accessing mailbox
     Office.onReady(() => {
       console.log("Office is ready in App.tsx");
+
       if (Office.context.mailbox && Office.context.mailbox.item) {
         const attachments = Office.context.mailbox.item.attachments || [];
-        console.log("attachement in App.tsx", attachments);
+        console.log("Attachments in App.tsx:", attachments);
+
         // Fetch content for each attachment
         const fetchAttachmentContent = async (attachment: any) => {
           return new Promise((resolve, reject) => {
@@ -41,10 +43,12 @@ const App: React.FC = () => {
           .then((attachmentsWithContent) => {
             // Open the modal dialog
             Office.context.ui.displayDialogAsync(
-            `${window.location.origin}/SDS-AI-Outlook-Plugin/tools/dialog.html?accessToken=${encodeURIComponent(token)}`,
+              `${window.location.origin}/SDS-AI-Outlook-Plugin/tools/dialog.html?accessToken=${encodeURIComponent(
+                token
+              )}`,
               {
-                width: 70, // ⬅️ Was 50
-                height: 70,
+                width: 70, // Adjusted width
+                height: 70, // Adjusted height
                 displayInIframe: true,
               },
               (result) => {
@@ -52,6 +56,8 @@ const App: React.FC = () => {
                   // Send the attachments to the modal dialog
                   const dialog = result.value;
                   console.log("Sending attachments to dialog:", attachmentsWithContent);
+
+                  // Delay sending the attachments to ensure the dialog is ready
                   setTimeout(() => {
                     dialog.messageChild(JSON.stringify(attachmentsWithContent));
                   }, 1200);
