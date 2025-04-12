@@ -1,14 +1,36 @@
 import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom";
 import { Attachment } from "../types/Attachment";
-import InvoiceAISender from "./InvoiceAISender"; // Adjust the import path as necessary
+import InvoiceAISender from "./InvoiceAISender";
+import appsettings from "../../../appsettings.json";
 
 // Extract the accessToken from the query string
 const urlParams = new URLSearchParams(window.location.search);
 const accessToken = urlParams.get("accessToken");
 
+// Determine selected agency and environment
+const selectedAgency = localStorage.getItem("selectedAgency") || "Switzerland";
+const environment = window.location.hostname.includes("localhost") ? "development" : "test";
+const baseFinanceUrl = appsettings[environment].FinanceUrls[selectedAgency];
+const ocrUrl = `${baseFinanceUrl}/Vouchers/SendVoucherForOCR`;
+const baseAuthUrl = appsettings[environment].AuthenticationUrls[selectedAgency];
 const DialogApp: React.FC = () => {
   const [attachments, setAttachments] = useState<Attachment[] | null>(null);
+  const [masterData, setMasterData] = useState<any[]>([]); // ✅ local masterData
+
+  useEffect(() => {
+    // Load master data from localStorage
+    const stored = localStorage.getItem("masterData");
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        setMasterData(parsed);
+        console.log("🧠 Master data loaded from localStorage:", parsed.length);
+      } catch (err) {
+        console.error("❌ Failed to parse masterData from localStorage", err);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     Office.onReady(() => {
@@ -32,12 +54,18 @@ const DialogApp: React.FC = () => {
         }
       );
     });
-  }, []); // ✅ run only once
+  }, []);
 
   return (
     <>
       {attachments ? (
-        <InvoiceAISender accessToken={accessToken} initialAttachments={attachments} />
+       <InvoiceAISender
+       accessToken={accessToken}
+       initialAttachments={attachments}
+       ocrUrl={ocrUrl}
+       authUrl={baseAuthUrl}
+       masterData={masterData}
+     />
       ) : (
         <div style={{ textAlign: "center", padding: "20px" }}>
           <p>Waiting for attachments...</p>
