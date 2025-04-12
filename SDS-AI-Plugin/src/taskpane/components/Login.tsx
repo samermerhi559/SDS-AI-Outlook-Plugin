@@ -1,60 +1,81 @@
-// Login.tsx
-import React, { useState, useEffect, useMemo } from "react";
+const isDialogContext = () => {
+  return window.location.pathname.includes("dialog.html");
+};
+
+import React, { useEffect, useMemo, useState } from "react";
 import Select from "react-select";
 import Footer from "./Footer";
+import { useMasterData } from "./MasterDataProvider";
+import { decrypt, encrypt } from "../../crypto";
 import { CustomSingleValue, CustomOption } from "./Memo";
-import "../../styles/global.css";
 
 interface Option {
   value: string;
   label: string;
   flag: string;
+  financeUrl: string;
+  agencyCode: string;
 }
 
 interface LoginProps {
-  appSettings: {
-    AuthenticationUrls: Record<string, string>;
-    AgencyFlags: Record<string, string>;
-  };
-  encrypt: (value: string) => string;
+  appSettings: any;
   showLoggedInUI: (accessToken: string) => void;
 }
 
-const Login: React.FC<LoginProps> = ({ appSettings, encrypt, showLoggedInUI }) => {
+const Login: React.FC<LoginProps> = ({ appSettings, showLoggedInUI }) => {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [accessToken, setAccessToken] = useState<string | null>(null);
   const [selectedAgency, setSelectedAgency] = useState<Option | null>(null);
-  const [username, setUsername] = useState<string>("");
-  const [password, setPassword] = useState<string>("");
-  const [token, setToken] = useState<string | null>(null);
-  const [error, setError] = useState<string>("");
+  const [error, setError] = useState("");
 
-  const options: Option[] = useMemo(
-    () =>
-      Object.entries(appSettings.AuthenticationUrls).map(([agency, baseUrl]) => ({
-        value: `${baseUrl}/login`, // Append /login dynamically
-        label: agency,
-        flag: appSettings.AgencyFlags[agency],
-      })),
-    [appSettings]
-  );
+  const { loadMasterData, loadModuleContext, clearMasterData } = useMasterData();
+
+  const options: Option[] = useMemo(() => {
+    return Object.entries(appSettings.AuthenticationUrls).map(([agency, url]) => ({
+      value: `${url}/login`,
+      label: agency,
+      flag: appSettings.AgencyFlags[agency],
+      financeUrl: appSettings.FinanceUrls[agency],
+      agencyCode: appSettings.AgencyCodes[agency],
+    }));
+  }, [appSettings]);
 
   useEffect(() => {
-    if (options.length > 0) {
-      setSelectedAgency(options[0]);
+    if (isDialogContext()) {
+      console.log("🛑 Login.tsx: Skipping auto-login inside dialog context.");
+      return;
     }
-  }, [options]);
-
-  useEffect(() => {
-    Office.onReady(() => {
-      const savedToken = Office.context.roamingSettings.get("accessToken");
-      const savedUser = Office.context.roamingSettings.get("userName");
-
-      if (savedToken && savedUser) {
-        setToken(savedToken);
-        setUsername(savedUser);
-        showLoggedInUI(savedToken);
-      }
-    });
+    const encrypted = Office.context.roamingSettings.get("accessTokenEncrypted");
+    const savedUser = Office.context.roamingSettings.get("userName");
+  
+    if (!encrypted || typeof encrypted !== "string") return;
+  
+    const savedToken = decrypt(encrypted);
+    if (!savedToken || !savedUser) return;
+  
+    console.log("🔐Login.tsx Component: Restoring Saved Access Token");
+    setAccessToken(savedToken);
+    setUsername(savedUser);
+    showLoggedInUI(savedToken);
   }, [showLoggedInUI]);
+
+  const waitForDialogReady = () =>
+    new Promise<void>((resolve) => {
+      const maxWait = 5000; // 5 seconds timeout
+      const start = Date.now();
+      const check = () => {
+        if (localStorage.getItem("dialogReady") === "true") {
+          resolve();
+        } else if (Date.now() - start > maxWait) {
+          console.warn("Timeout waiting for dialogReady. Proceeding without confirmation.");
+          resolve(); // ✅ Proceed even if dialogReady is not set
+        } else {
+          setTimeout(check, 100);
+        }
+      };
+      check();
+    });
 
   const handleLogin = async () => {
     if (!selectedAgency || !username || !password) {
@@ -62,19 +83,17 @@ const Login: React.FC<LoginProps> = ({ appSettings, encrypt, showLoggedInUI }) =
       return;
     }
 
-    const url = selectedAgency.value; // Use the dynamically appended URL
+    const url = selectedAgency.value;
     const payload = {
       userName: username,
       password: password,
-      loginRsponse: {}
+      loginRsponse: {},
     };
 
     try {
       const response = await fetch(url, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
@@ -87,88 +106,96 @@ const Login: React.FC<LoginProps> = ({ appSettings, encrypt, showLoggedInUI }) =
         return;
       }
 
-      const encryptedAccessToken = encrypt(receivedAccessToken);
-      const encryptedRefreshToken = encrypt(receivedRefreshToken);
-
-      // Save tokens in roaming settings
-      Office.context.roamingSettings.set("accessToken", encryptedAccessToken);
-      Office.context.roamingSettings.set("refreshToken", encryptedRefreshToken);
+      Office.context.roamingSettings.set("accessTokenEncrypted", encrypt(receivedAccessToken));
+      Office.context.roamingSettings.set("refreshToken", encrypt(receivedRefreshToken));
       Office.context.roamingSettings.set("userName", username);
-      Office.context.roamingSettings.saveAsync();
 
-      setToken(encryptedAccessToken);
-      showLoggedInUI(encryptedAccessToken);
+      Office.context.roamingSettings.saveAsync((result) => {
+        if (result.status === Office.AsyncResultStatus.Succeeded) {
+          const runAfterSave = async () => {
+            await waitForDialogReady(); // ✅ wait for dialog to be ready
+            console.log("Login.tsx Component: Tokens saved. Proceeding with master data and module loading.");
+            console.log("🔐Login.tsx Component:  setting saved Access Token Started", receivedAccessToken);
+            setAccessToken(receivedAccessToken);
+            console.log("🔐Login.tsx Component:  Showing LoggedInUI", receivedAccessToken);
+          
+            console.log("🔐Login.tsx Component:  Showing LoggedInUI Done", receivedAccessToken);
+
+            localStorage.setItem("selectedAgency", selectedAgency.label);
+            localStorage.setItem("agencycode", selectedAgency.agencyCode);
+
+            const financeUrl = selectedAgency.financeUrl;
+            const authUrl = selectedAgency.value.replace("/login", "");
+
+            localStorage.setItem("FinanceUrl", financeUrl);
+            localStorage.setItem("AuthenticationUrl", authUrl);
+            console.log("💰Login.tsx Component:  Saved FinanceUrl:", financeUrl);
+            console.log("🔐Login.tsx Component:  Saved AuthenticationUrl:", authUrl);
+
+            if (financeUrl && authUrl) {
+              console.log("🔐Login.tsx Component:  calling loadModuleContext and loadMasterData started", receivedAccessToken);
+              await loadModuleContext(authUrl);
+              await loadMasterData(financeUrl, authUrl);
+              console.log("🔐Login.tsx Component:   calling loadModuleContext and loadMasterData ended", receivedAccessToken);
+              showLoggedInUI(receivedAccessToken);
+            }
+          };
+
+          runAfterSave();
+        } else {
+          console.error("❌ Failed to save tokens:", result.error.message);
+        }
+      });
     } catch (err) {
-      setError("An error occurred during login. Please try again.");
+      console.error("Login error:", err);
+      setError("Unexpected error during login.");
     }
   };
 
   const handleLogout = () => {
-    // Clear tokens from roaming settings
-    Office.context.roamingSettings.remove("accessToken");
+    clearMasterData();
+    localStorage.clear();
+    sessionStorage.clear(); 
+    Office.context.roamingSettings.remove("accessTokenEncrypted");
     Office.context.roamingSettings.remove("refreshToken");
     Office.context.roamingSettings.remove("userName");
     Office.context.roamingSettings.saveAsync();
-
-    // Clear local state
-    setToken(null);
-    setUsername("");
-    setPassword("");
-    setSelectedAgency(null);
+    setAccessToken(null);
   };
 
   return (
     <div className="login-container">
-      {!token ? (
+      {!accessToken ? (
         <>
-          <h2 className="login-title">Sign in to Invoice AI</h2>
-
-          <div className="login-field">
-            <label htmlFor="agency-select">Select Agency:</label>
-            <Select
-              id="agency-select"
-              value={selectedAgency}
-              onChange={(option) => setSelectedAgency(option as Option)}
-              options={options}
-              components={{ SingleValue: CustomSingleValue, Option: CustomOption }}
-            />
-          </div>
-
-          <div className="login-field">
-            <label htmlFor="username">Username</label>
-            <input
-              id="username"
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="Enter your username"
-            />
-          </div>
-
-          <div className="login-field">
-            <label htmlFor="password">Password</label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
-            />
-          </div>
-
+          <h2>Welcome to SDS Invoice AI</h2>
+          <Select
+            options={options}
+            onChange={(val) => setSelectedAgency(val as Option)}
+            value={selectedAgency}
+            placeholder="Select your agency"
+            components={{ SingleValue: CustomSingleValue, Option: CustomOption }}
+          />
+          <input
+            type="text"
+            placeholder="Username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
           {error && <p style={{ color: "red" }}>{error}</p>}
-
-          <div style={{ textAlign: "center" }}>
-            <button onClick={handleLogin}>Log In</button>
-          </div>
+          <button onClick={handleLogin}>Log In</button>
         </>
       ) : (
-        <div className="login-success">
-          <p>✅ You are now connected as <strong>{username}</strong>.</p>
+        <div>
+          <p>You are now connected as <strong>{username}</strong>.</p>
           <button onClick={handleLogout}>Log Out</button>
         </div>
       )}
-
       <Footer />
     </div>
   );

@@ -1,4 +1,3 @@
-// InvoiceAISender.tsx
 import React, { useRef, useState, useEffect } from "react";
 import { Attachment } from "../types/Attachment";
 import { useAttachments } from "./useAttachments";
@@ -6,10 +5,16 @@ import AttachmentFilterToggle from "./AttachmentFilterToggle";
 import AttachmentTable from "./AttachmentTable";
 import FilePreview from "./FilePreview";
 import "../../styles/global.css";
+import { logoutAndReload } from "../../session";
+import { refreshTokenAndPost } from "../../secureFetch";
+import InvoiceFormFields from "./InvoiceFormFields";
 
 interface InvoiceAISenderProps {
   accessToken: string | null;
   initialAttachments?: Attachment[];
+  ocrUrl: string;
+  authUrl: string;
+  masterData?: any[];
 }
 
 interface InvoiceFields {
@@ -28,25 +33,53 @@ interface InvoiceFields {
   costCenter: string;
 }
 
-const InvoiceAISender: React.FC<InvoiceAISenderProps> = ({ accessToken, initialAttachments = [] }) => {
+const isValidVoucherResponse = (data: any): data is InvoiceFields => {
+  return data && typeof data === "object" && "invoiceNumber" in data && "totalAmount" in data;
+};
+
+const InvoiceAISender: React.FC<InvoiceAISenderProps> = ({
+  accessToken,
+  initialAttachments = [],
+  ocrUrl,
+  authUrl,
+  masterData = [],
+}) => {
+  console.log("🔑 InvoiceAISender.tsx: loading...");
   const initialized = useRef(false);
   const [showAll, setShowAll] = useState(false);
   const [selectedAttachment, setSelectedAttachment] = useState<Attachment | null>(null);
   const [responseFields, setResponseFields] = useState<InvoiceFields | null>(null);
   const [sending, setSending] = useState(false);
 
+  const safeAttachments = Array.isArray(initialAttachments) ? initialAttachments : [];
+  console.log("✅ InvoiceAISender.tsx: ", safeAttachments.length, "attachments loaded");
+  console.log("🔑 InvoiceAISender.tsx: initialized.current ", initialized.current);
   const {
     loading,
     filteredAttachments,
     setAttachments,
-  } = useAttachments(initialAttachments, showAll);
+  } = useAttachments(safeAttachments, showAll);
 
   useEffect(() => {
-    if (!initialized.current && initialAttachments.length > 0) {
-      setAttachments(initialAttachments);
+    console.log("✅ Master data available in InvoiceAISender:", masterData.length);
+  }, [masterData]);
+
+  useEffect(() => {
+    if (!initialized.current && safeAttachments.length > 0) {
+      console.log("🔑 InvoiceAISender.tsx: setting attachments...");
+      setAttachments(safeAttachments);
       initialized.current = true;
+      console.log("🔑 InvoiceAISender.tsx: setting attachments done");
     }
-  }, [initialAttachments, setAttachments]);
+  }, [safeAttachments, setAttachments]);
+
+  // ✅ Fallback to stop loading if for any reason it remains stuck
+  useEffect(() => {
+    if (safeAttachments.length > 0 && loading) {
+      console.log("🛠️ InvoiceAISender.tsx: Triggering fallback to stop loading...");
+      setAttachments(safeAttachments); // This will also set loading = false
+    }
+  }, [safeAttachments, loading, setAttachments]);
 
   const sendToERP = async (attachment: Attachment) => {
     if (!attachment.fileBase64 || !accessToken) return;
@@ -65,15 +98,15 @@ const InvoiceAISender: React.FC<InvoiceAISenderProps> = ({ accessToken, initialA
         fileBase64: attachment.fileBase64,
         recognized: true,
       };
-      const response = await fetch("https://finance-test.sds-ch.com/Vouchers/SendVoucherForOCR", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify(payload),
-      });
-      const data = await response.json();
+
+      const data = await refreshTokenAndPost(ocrUrl, payload, authUrl);
+      if (!data) return;
+
+      if (!isValidVoucherResponse(data)) {
+        logoutAndReload();
+        return;
+      }
+
       setResponseFields(data);
     } catch (err) {
       console.error("Error sending to ERP", err);
@@ -84,7 +117,8 @@ const InvoiceAISender: React.FC<InvoiceAISenderProps> = ({ accessToken, initialA
 
   const botIconPath = "/SDS-AI-Outlook-Plugin/assets/ai-bot-icon.png";
   const currencies = ["USD", "EUR", "CHF", "GBP", "TND", "NZD", "AOA", "CFA", "GYD", "ZAR", "NAD"];
-  const taxCodes = ["0", "10", "19", "20"];
+
+  console.log("🔑 InvoiceAISender.tsx: entering form loading");
 
   return (
     <div className="invoice-container">
@@ -93,13 +127,13 @@ const InvoiceAISender: React.FC<InvoiceAISenderProps> = ({ accessToken, initialA
           <div className="invoice-overlay">
             <img src={botIconPath} alt="AI Bot" className="ai-bot-animated" />
             {loading ? (
-                          "Loading attachments..."
-                        ) : (
-                          <>
-                            <span>Analyzing content...</span>
-                            <span>Just a moment...</span>
-                          </>
-                        )}
+              "Loading attachments..."
+            ) : (
+              <>
+                <span>Analyzing content...</span>
+                <span>Just a moment...</span>
+              </>
+            )}
           </div>
           <div className="scanner-effect" />
         </>
@@ -120,46 +154,11 @@ const InvoiceAISender: React.FC<InvoiceAISenderProps> = ({ accessToken, initialA
         </div>
 
         {responseFields && (
-          <div className="invoice-fields">
-            {[
-              ["invoiceNumber", "invoiceIssuerNameOnly"],
-              ["invoiceDate", "dueDate"],
-              ["invoiceTitle", "invoiceDetailSummary"],
-              ["invoiceCurrency", "totalAmount"],
-              ["voucherTaxCode", "taxAmount"],
-              ["accountNumber", "fileNumber"],
-              ["costCenter"]
-            ].map((row, index) => (
-              <div className="field-pair" key={index}>
-                {row.map((field) => (
-                  <div key={field}>
-                    <label>{field.replace(/([A-Z])/g, " $1").replace(/^\w/, c => c.toUpperCase())}</label>
-                    {field === "invoiceCurrency" ? (
-                      <select value={responseFields.invoiceCurrency || ""} disabled aria-label="Invoice Currency">
-                        {currencies.map((cur) => (
-                          <option key={cur} value={cur}>{cur}</option>
-                        ))}
-                      </select>
-                    ) : field === "voucherTaxCode" ? (
-                      <select value={responseFields.voucherTaxCode || ""} disabled aria-label="Tax Code">
-                        {taxCodes.map((code) => (
-                          <option key={code} value={code}>{code}%</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        type={field.toLowerCase().includes("date") ? "date" : field.toLowerCase().includes("amount") ? "number" : "text"}
-                        value={responseFields[field as keyof InvoiceFields] as string | number || ""}
-                        readOnly
-                        placeholder={`Enter ${field.replace(/([A-Z])/g, " $1").toLowerCase()}`}
-                        title={field.replace(/([A-Z])/g, " $1").replace(/^\w/, c => c.toUpperCase())}
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
+          <InvoiceFormFields
+            responseFields={responseFields}
+            currencies={currencies}
+            masterData={masterData}
+          />
         )}
       </div>
 
