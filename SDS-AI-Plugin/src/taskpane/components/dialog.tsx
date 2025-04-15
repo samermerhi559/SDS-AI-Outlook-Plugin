@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom";
 import InvoiceAISender from "./InvoiceAISender";
+import { getAttachmentsFromDB, clearAttachmentsFromDB } from "./db"; // ✅ IndexedDB utilities
 
 const Dialog: React.FC = () => {
   const [accessToken, setAccessToken] = useState("");
@@ -43,25 +44,19 @@ const Dialog: React.FC = () => {
       if (financeUrl) setOcrUrl(`${financeUrl}/Vouchers/SendVoucherForOCR`);
       if (authUrl) setBaseAuthUrl(authUrl);
 
-      // ✅ Load attachments from localStorage instead of relying on Office messaging
-      //const attachmentsJson = localStorage.getItem("attachmentsPayload");
-      const attachmentsJson = sessionStorage.getItem("attachmentsPayload");
-      if (attachmentsJson) {
-        try {
-          const parsed = JSON.parse(attachmentsJson);
-          if (Array.isArray(parsed) && parsed[0]?.fileBase64) {
-            console.log("✅ dialog.tsx: Loaded attachments from localStorage:", parsed);
-            setAttachments(parsed);
-            setAttachmentsReady(true);
-            localStorage.removeItem("attachmentsPayload"); // optional cleanup
-          } else {
-            console.warn("⚠️ dialog.tsx: Invalid attachments format in localStorage:", parsed);
-          }
-        } catch (err) {
-          console.error("❌ dialog.tsx: Failed to parse attachmentsPayload:", err);
+      // ✅ Load attachments from IndexedDB
+      try {
+        const attachmentsFromDB = await getAttachmentsFromDB();
+        if (attachmentsFromDB && Array.isArray(attachmentsFromDB)) {
+          console.log("✅ dialog.tsx: Loaded attachments from IndexedDB:", attachmentsFromDB);
+          setAttachments(attachmentsFromDB);
+          setAttachmentsReady(true);
+          await clearAttachmentsFromDB(); // 🧹 Optional cleanup
+        } else {
+          console.warn("⚠️ dialog.tsx: No valid attachments found in IndexedDB");
         }
-      } else {
-        console.warn("⚠️ dialog.tsx: No attachmentsPayload found in localStorage");
+      } catch (error) {
+        console.error("❌ dialog.tsx: Error reading attachments from IndexedDB:", error);
       }
     };
 
@@ -81,7 +76,6 @@ const Dialog: React.FC = () => {
       attachments.length > 0 &&
       masterData.length > 0 ? (
         <>
-          
           <InvoiceAISender
             accessToken={accessToken}
             initialAttachments={attachments}
@@ -112,11 +106,10 @@ const Dialog: React.FC = () => {
   );
 };
 
-// ✅ Wait until Office is fully loaded, then mount React
+// ✅ Mount after Office is ready
 Office.onReady().then(() => {
   console.log("📦 Office.onReady(): Mounting <Dialog /> component");
 
-  // Tell parent that dialog is ready using Office's Dialog API
   if (Office.context.ui && Office.context.ui.messageParent) {
     Office.context.ui.messageParent("dialog-ready");
   }
@@ -128,3 +121,5 @@ Office.onReady().then(() => {
     console.error("❌ root element not found in dialog.html");
   }
 });
+
+export default Dialog;

@@ -5,6 +5,7 @@ const isDialogContext = () => {
 import React, { useState } from "react";
 import Login from "./Login";
 import { MasterDataProvider } from "./MasterDataProvider";
+import { saveAttachmentsToDB } from "./db"; // ✅ import IndexedDB helper
 
 const appSettings = APP_SETTINGS;
 
@@ -47,12 +48,12 @@ const App: React.FC = () => {
         };
 
         Promise.all(attachments.map(fetchAttachmentContent))
-          .then((attachmentsWithContent) => {
+          .then(async (attachmentsWithContent) => {
             console.log("📦 App.tsx: attachmentsWithContent loaded:", attachmentsWithContent);
 
-            // ✅ Save to localStorage instead of messageChild
-            //localStorage.setItem("attachmentsPayload", JSON.stringify(attachmentsWithContent));
-            sessionStorage.setItem("attachmentsPayload", JSON.stringify(attachmentsWithContent));
+            // ✅ Save to IndexedDB
+            await saveAttachmentsToDB(attachmentsWithContent);
+            console.log("📦 App.tsx: Attachments saved to IndexedDB");
 
             Office.context.ui.displayDialogAsync(
               `${window.location.origin}/SDS-AI-Outlook-Plugin/tools/dialog.html?accessToken=${encodeURIComponent(token)}`,
@@ -73,7 +74,6 @@ const App: React.FC = () => {
                   dialog.addEventHandler(Office.EventType.DialogMessageReceived, (arg) => {
                     if ("message" in arg && arg.message === "dialog-ready") {
                       console.log("✅ App.tsx: Received dialog-ready.");
-                      // We already stored attachments in localStorage
                       localStorage.setItem("dialogReady", "true");
                     } else if ("message" in arg) {
                       console.log("📨 Received unexpected message:", arg.message);
