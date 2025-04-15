@@ -141,7 +141,6 @@ const InvoiceAISender: React.FC<InvoiceAISenderProps> = ({
 
       <div className="invoice-sidebar" style={{ maxWidth: 600 }}>
         <div className="invoice-header">
-          <h3>Email Attachments</h3>
           <AttachmentFilterToggle showAll={showAll} onToggle={setShowAll} />
         </div>
 
@@ -156,6 +155,7 @@ const InvoiceAISender: React.FC<InvoiceAISenderProps> = ({
         {responseFields && (
           <InvoiceFormFields
             responseFields={responseFields}
+            setResponseFields={setResponseFields}
             currencies={currencies}
             masterData={masterData}
           />

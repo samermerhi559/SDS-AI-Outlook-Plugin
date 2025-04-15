@@ -1,4 +1,5 @@
 import React, { useMemo } from "react";
+import Select from "react-select";
 
 export interface InvoiceFields {
   invoiceNumber: string;
@@ -10,7 +11,7 @@ export interface InvoiceFields {
   invoiceIssuerNameOnly: string;
   invoiceTitle: string;
   invoiceDetailSummary: string;
-  voucherTaxCode: string; // legacy, now overridden by checkboxes
+  voucherTaxCode: string;
   accountNumber: string;
   fileNumber: string;
   costCenter: string;
@@ -29,73 +30,123 @@ interface Props {
   responseFields: InvoiceFields;
   currencies: string[];
   masterData: MasterDataItem[];
+  setResponseFields?: (fields: InvoiceFields) => void;
 }
 
-const InvoiceFormFields: React.FC<Props> = ({ responseFields, currencies, masterData }) => {
+const InvoiceFormFields: React.FC<Props> = ({ responseFields, currencies, masterData, setResponseFields }) => {
   const fieldGroups: string[][] = [
-    ["invoiceNumber", "invoiceIssuerNameOnly"],
+    ["invoiceNumber","fileNumber"],
     ["invoiceDate", "dueDate"],
-    ["invoiceTitle", "invoiceDetailSummary"],
+    ["invoiceIssuerNameOnly"],
+    ["invoiceTitle"],
+    ["invoiceDetailSummary"],
     ["invoiceCurrency", "totalAmount"],
-    ["accountNumber", "fileNumber"],
+    ["accountNumber"],
     ["costCenter"]
   ];
 
   const formatLabel = (field: string) =>
     field.replace(/([A-Z])/g, " $1").replace(/^\w/, c => c.toUpperCase());
 
-  // ✅ Extract taxes from masterData grouped by textValue
   const taxGroups = useMemo(() => {
     const taxLines = masterData.filter((item) => item.groupe === "Taxes");
     const grouped: Record<string, MasterDataItem[]> = {};
-
     for (const item of taxLines) {
       if (!grouped[item.textValue]) {
         grouped[item.textValue] = [];
       }
       grouped[item.textValue].push(item);
     }
-
     return grouped;
   }, [masterData]);
 
+  const suppliers = masterData.filter((item) => item.groupe === "Suppliers");
+  const costCenters = masterData.filter((item) => item.groupe === "CostCenter");
+  const accounts = masterData.filter((item) => item.groupe === "Accounts");
+
+  const toSelectOptions = (items: MasterDataItem[]) =>
+    items.map((item) => ({ value: item.code, label: `[${item.label}]` }));
+
+  const getCurrentOption = (value: string, options: { value: string; label: string }[]) =>
+    options.find((opt) => opt.value === value) || null;
+
+  const handleFieldChange = (field: keyof InvoiceFields, value: string | number) => {
+    if (setResponseFields) {
+      setResponseFields({ ...responseFields, [field]: value });
+    }
+  };
+
   return (
     <div className="invoice-fields">
-
-      {/* Static fields */}
       {fieldGroups.map((row, index) => (
         <div className="field-pair" key={index}>
-          {row.map((field) => (
-            <div key={field}>
-              <label>{formatLabel(field)}</label>
-              {field === "invoiceCurrency" ? (
-                <select value={responseFields.invoiceCurrency || ""}  aria-label="Invoice Currency">
-                  {currencies.map((cur) => (
-                    <option key={cur} value={cur}>{cur}</option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  type={field.toLowerCase().includes("date")
-                    ? "date"
-                    : field.toLowerCase().includes("amount")
-                    ? "number"
-                    : "text"}
+          {row.map((field) => {
+            const value = responseFields[field as keyof InvoiceFields] ?? "";
+
+            return (
+              <div key={field}>
+                <label>{formatLabel(field)}</label>
+
+                {field === "invoiceCurrency" ? (
+                  <Select
+                    options={currencies.map((cur) => ({ value: cur, label: cur }))}
+                    value={{ value: value, label: value }}
+                    onChange={(opt) => handleFieldChange(field as keyof InvoiceFields, opt?.value || "")}
+                    isClearable
+                    isSearchable
+                    aria-label="Invoice Currency"
+                  />
+                ) : field === "invoiceIssuerNameOnly" ? (
+                  <Select
+                    options={toSelectOptions(suppliers)}
+                    value={getCurrentOption(value as string, toSelectOptions(suppliers))}
+                    onChange={(opt) => handleFieldChange(field as keyof InvoiceFields, opt?.value || "")}
+                    isClearable
+                    isSearchable
+                    aria-label="Supplier"
+                  />
+                ) : field === "costCenter" ? (
+                  <Select
+                    options={toSelectOptions(costCenters)}
+                    value={getCurrentOption(value as string, toSelectOptions(costCenters))}
+                    onChange={(opt) => handleFieldChange(field as keyof InvoiceFields, opt?.value || "")}
+                    isClearable
+                    isSearchable
+                    aria-label="Cost Center"
+                  />
+                ) : field === "accountNumber" ? (
+                  <Select
+                    options={toSelectOptions(accounts)}
+                    value={getCurrentOption(value as string, toSelectOptions(accounts))}
+                    onChange={(opt) => handleFieldChange(field as keyof InvoiceFields, opt?.value || "")}
+                    isClearable
+                    isSearchable
+                    aria-label="Account"
+                  />
+                ) : (
+                  <input
+                    type={field.toLowerCase().includes("date")
+                      ? "date"
+                      : field.toLowerCase().includes("amount")
+                      ? "number"
+                      : "text"}
                     value={
-                      field.toLowerCase().includes("date") && typeof responseFields[field as keyof InvoiceFields] === "string"
-                        ? (responseFields[field as keyof InvoiceFields] as string).split("T")[0]
-                        : responseFields[field as keyof InvoiceFields] as string | number || ""
+                      field.toLowerCase().includes("date") && typeof value === "string"
+                        ? value.split("T")[0]
+                        : value
                     }
-                  placeholder={`Enter ${formatLabel(field).toLowerCase()}`}
-                  title={formatLabel(field)}
-                />
-              )}
-            </div>
-          ))}
+                    onChange={(e) => handleFieldChange(field as keyof InvoiceFields, e.target.value)}
+                    placeholder={`Enter ${formatLabel(field).toLowerCase()}`}
+                    title={formatLabel(field)}
+                  />
+                )}
+              </div>
+            );
+          })}
         </div>
       ))}
 
-      {/* ✅ Dynamic Tax Checkboxes at bottom */}
+      {/* ✅ Dynamic Tax Checkboxes */}
       {Object.keys(taxGroups).length > 0 && (
         <div className="tax-code-checkboxes" style={{ marginTop: "2rem" }}>
           <h4>Tax Codes</h4>
@@ -108,6 +159,7 @@ const InvoiceFormFields: React.FC<Props> = ({ responseFields, currencies, master
                     <input
                       type="checkbox"
                       checked={responseFields.voucherTaxCode?.split(",").includes(item.code)}
+                      disabled
                     />
                     {item.label}
                   </label>
