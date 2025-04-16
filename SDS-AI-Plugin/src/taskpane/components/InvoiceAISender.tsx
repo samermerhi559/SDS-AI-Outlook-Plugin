@@ -1,3 +1,4 @@
+// ✅ InvoiceAISender.tsx
 import React, { useRef, useState, useEffect } from "react";
 import { Attachment } from "../types/Attachment";
 import { useAttachments } from "./useAttachments";
@@ -17,6 +18,14 @@ interface InvoiceAISenderProps {
   masterData?: any[];
 }
 
+interface InvoiceSuggestions {
+  suggestedSupplierCode?: string;
+  suggestedCostCenter?: string;
+  suggestedAccountNumber?: string;
+  suggestedTaxCodes?: string;
+  suggestedTaxCodeList?: string[];
+}
+
 interface InvoiceFields {
   invoiceNumber: string;
   invoiceCurrency: string;
@@ -31,6 +40,7 @@ interface InvoiceFields {
   accountNumber: string;
   fileNumber: string;
   costCenter: string;
+  suggestions?: InvoiceSuggestions;
 }
 
 const isValidVoucherResponse = (data: any): data is InvoiceFields => {
@@ -44,7 +54,6 @@ const InvoiceAISender: React.FC<InvoiceAISenderProps> = ({
   authUrl,
   masterData = [],
 }) => {
-  console.log("🔑 InvoiceAISender.tsx: loading...");
   const initialized = useRef(false);
   const [showAll, setShowAll] = useState(false);
   const [selectedAttachment, setSelectedAttachment] = useState<Attachment | null>(null);
@@ -52,8 +61,6 @@ const InvoiceAISender: React.FC<InvoiceAISenderProps> = ({
   const [sending, setSending] = useState(false);
 
   const safeAttachments = Array.isArray(initialAttachments) ? initialAttachments : [];
-  console.log("✅ InvoiceAISender.tsx: ", safeAttachments.length, "attachments loaded");
-  console.log("🔑 InvoiceAISender.tsx: initialized.current ", initialized.current);
   const {
     loading,
     filteredAttachments,
@@ -61,23 +68,15 @@ const InvoiceAISender: React.FC<InvoiceAISenderProps> = ({
   } = useAttachments(safeAttachments, showAll);
 
   useEffect(() => {
-    console.log("✅ Master data available in InvoiceAISender:", masterData.length);
-  }, [masterData]);
-
-  useEffect(() => {
     if (!initialized.current && safeAttachments.length > 0) {
-      console.log("🔑 InvoiceAISender.tsx: setting attachments...");
       setAttachments(safeAttachments);
       initialized.current = true;
-      console.log("🔑 InvoiceAISender.tsx: setting attachments done");
     }
   }, [safeAttachments, setAttachments]);
 
-  // ✅ Fallback to stop loading if for any reason it remains stuck
   useEffect(() => {
     if (safeAttachments.length > 0 && loading) {
-      console.log("🛠️ InvoiceAISender.tsx: Triggering fallback to stop loading...");
-      setAttachments(safeAttachments); // This will also set loading = false
+      setAttachments(safeAttachments);
     }
   }, [safeAttachments, loading, setAttachments]);
 
@@ -107,7 +106,15 @@ const InvoiceAISender: React.FC<InvoiceAISenderProps> = ({
         return;
       }
 
-      setResponseFields(data);
+      const suggestions = data.suggestions || {};
+      const updatedFields: InvoiceFields = {
+        ...data,
+        invoiceIssuerNameOnly: suggestions.suggestedSupplierCode || data.invoiceIssuerNameOnly,
+        costCenter: suggestions.suggestedCostCenter || data.costCenter,
+        accountNumber: suggestions.suggestedAccountNumber || data.accountNumber,
+      };
+
+      setResponseFields(updatedFields);
     } catch (err) {
       console.error("Error sending to ERP", err);
     } finally {
@@ -118,22 +125,13 @@ const InvoiceAISender: React.FC<InvoiceAISenderProps> = ({
   const botIconPath = "/SDS-AI-Outlook-Plugin/assets/ai-bot-icon.png";
   const currencies = ["USD", "EUR", "CHF", "GBP", "TND", "NZD", "AOA", "CFA", "GYD", "ZAR", "NAD"];
 
-  console.log("🔑 InvoiceAISender.tsx: entering form loading");
-
   return (
     <div className="invoice-container">
       {(loading || sending) && (
         <>
           <div className="invoice-overlay">
             <img src={botIconPath} alt="AI Bot" className="ai-bot-animated" />
-            {loading ? (
-              "Loading attachments..."
-            ) : (
-              <>
-                <span>Analyzing content...</span>
-                <span>Just a moment...</span>
-              </>
-            )}
+            {loading ? "Loading attachments..." : <><span>Analyzing content...</span><span>Just a moment...</span></>}
           </div>
           <div className="scanner-effect" />
         </>

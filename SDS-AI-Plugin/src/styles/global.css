@@ -83,7 +83,12 @@ button:hover {
 }
 
 .login-field {
-  margin-bottom: 20px;
+  margin-bottom: 16px;
+}
+
+.login-container button {
+  display: block;
+  margin: 10px auto 0 auto;
 }
 
 .attachment-table table {
@@ -248,4 +253,51 @@ button:hover {
   font-size: 18px;
   font-weight: bold;
   text-align: center;
+}
+.login-loading {
+  text-align: center;
+  padding: 40px 20px;
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+  margin: 80px auto;
+  max-width: 420px;
+}
+button.button-loading {
+  position: relative;
+  opacity: 0.8;
+  pointer-events: none;
+}
+button.button-loading::after {
+  content: \"\";
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  border: 2px solid #fff;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@media (max-width: 480px) {
+  .invoice-container {
+    flex-direction: column;
+    -ms-flex-direction: column; /* IE 10+ */
+  }
+
+  .invoice-sidebar, .invoice-preview-panel {
+    -ms-flex: 1 0 auto; /* IE 10+ */
+    flex: 1 0 auto;
+    max-width: 100%;
+    border-right: none;
+    padding: 10px;
+  }
+
+  .login-container,
+  .login-loading {
+    margin: 20px;
+    padding: 20px;
+  }
 }

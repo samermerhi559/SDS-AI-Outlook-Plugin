@@ -1,3 +1,4 @@
+// ✅ Login.tsx — improved layout with button spacing and centering
 const isDialogContext = () => {
   return window.location.pathname.includes("dialog.html");
 };
@@ -28,6 +29,7 @@ const Login: React.FC<LoginProps> = ({ appSettings, showLoggedInUI }) => {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [selectedAgency, setSelectedAgency] = useState<Option | null>(null);
   const [error, setError] = useState("");
+  const [loadingPhase, setLoadingPhase] = useState<"none" | "login" | "loadingData">("none");
 
   const { loadMasterData, loadModuleContext, clearMasterData } = useMasterData();
 
@@ -42,19 +44,16 @@ const Login: React.FC<LoginProps> = ({ appSettings, showLoggedInUI }) => {
   }, [appSettings]);
 
   useEffect(() => {
-    if (isDialogContext()) {
-      console.log("🛑 Login.tsx: Skipping auto-login inside dialog context.");
-      return;
-    }
+    if (isDialogContext()) return;
+
     const encrypted = Office.context.roamingSettings.get("accessTokenEncrypted");
     const savedUser = Office.context.roamingSettings.get("userName");
-  
+
     if (!encrypted || typeof encrypted !== "string") return;
-  
+
     const savedToken = decrypt(encrypted);
     if (!savedToken || !savedUser) return;
-  
-    console.log("🔐Login.tsx Component: Restoring Saved Access Token");
+
     setAccessToken(savedToken);
     setUsername(savedUser);
     showLoggedInUI(savedToken);
@@ -62,14 +61,13 @@ const Login: React.FC<LoginProps> = ({ appSettings, showLoggedInUI }) => {
 
   const waitForDialogReady = () =>
     new Promise<void>((resolve) => {
-      const maxWait = 5000; // 5 seconds timeout
+      const maxWait = 5000;
       const start = Date.now();
       const check = () => {
         if (localStorage.getItem("dialogReady") === "true") {
           resolve();
         } else if (Date.now() - start > maxWait) {
-          console.warn("Timeout waiting for dialogReady. Proceeding without confirmation.");
-          resolve(); // ✅ Proceed even if dialogReady is not set
+          resolve();
         } else {
           setTimeout(check, 100);
         }
@@ -83,6 +81,7 @@ const Login: React.FC<LoginProps> = ({ appSettings, showLoggedInUI }) => {
       return;
     }
 
+    setLoadingPhase("login");
     const url = selectedAgency.value;
     const payload = {
       userName: username,
@@ -103,6 +102,7 @@ const Login: React.FC<LoginProps> = ({ appSettings, showLoggedInUI }) => {
 
       if (!receivedAccessToken || !receivedRefreshToken) {
         setError("Login failed. Please check your credentials.");
+        setLoadingPhase("none");
         return;
       }
 
@@ -113,13 +113,9 @@ const Login: React.FC<LoginProps> = ({ appSettings, showLoggedInUI }) => {
       Office.context.roamingSettings.saveAsync((result) => {
         if (result.status === Office.AsyncResultStatus.Succeeded) {
           const runAfterSave = async () => {
-            await waitForDialogReady(); // ✅ wait for dialog to be ready
-            console.log("Login.tsx Component: Tokens saved. Proceeding with master data and module loading.");
-            console.log("🔐Login.tsx Component:  setting saved Access Token Started", receivedAccessToken);
+            await waitForDialogReady();
             setAccessToken(receivedAccessToken);
-            console.log("🔐Login.tsx Component:  Showing LoggedInUI", receivedAccessToken);
-          
-            console.log("🔐Login.tsx Component:  Showing LoggedInUI Done", receivedAccessToken);
+            setLoadingPhase("loadingData");
 
             localStorage.setItem("selectedAgency", selectedAgency.label);
             localStorage.setItem("agencycode", selectedAgency.agencyCode);
@@ -129,33 +125,31 @@ const Login: React.FC<LoginProps> = ({ appSettings, showLoggedInUI }) => {
 
             localStorage.setItem("FinanceUrl", financeUrl);
             localStorage.setItem("AuthenticationUrl", authUrl);
-            console.log("💰Login.tsx Component:  Saved FinanceUrl:", financeUrl);
-            console.log("🔐Login.tsx Component:  Saved AuthenticationUrl:", authUrl);
 
             if (financeUrl && authUrl) {
-              console.log("🔐Login.tsx Component:  calling loadModuleContext and loadMasterData started", receivedAccessToken);
               await loadModuleContext(authUrl);
               await loadMasterData(financeUrl, authUrl);
-              console.log("🔐Login.tsx Component:   calling loadModuleContext and loadMasterData ended", receivedAccessToken);
+              setLoadingPhase("none");
               showLoggedInUI(receivedAccessToken);
             }
           };
 
           runAfterSave();
         } else {
-          console.error("❌ Failed to save tokens:", result.error.message);
+          setLoadingPhase("none");
         }
       });
     } catch (err) {
       console.error("Login error:", err);
       setError("Unexpected error during login.");
+      setLoadingPhase("none");
     }
   };
 
   const handleLogout = () => {
     clearMasterData();
     localStorage.clear();
-    sessionStorage.clear(); 
+    sessionStorage.clear();
     Office.context.roamingSettings.remove("accessTokenEncrypted");
     Office.context.roamingSettings.remove("refreshToken");
     Office.context.roamingSettings.remove("userName");
@@ -165,30 +159,47 @@ const Login: React.FC<LoginProps> = ({ appSettings, showLoggedInUI }) => {
 
   return (
     <div className="login-container">
-      {!accessToken ? (
+      {loadingPhase !== "none" ? (
+        <div className="login-loading">
+          <img src="/SDS-AI-Outlook-Plugin/assets/ai-bot-icon.png" className="ai-bot-animated" alt="AI bot" />
+          <p style={{ marginTop: "1rem" }}>
+            {loadingPhase === "login"
+              ? "Logging you in... just a sec, charging my AI circuits 🤖"
+              : "Login successful! Gathering some brain juice... 🧠✨"}
+          </p>
+        </div>
+      ) : !accessToken ? (
         <>
-          <h2>Welcome to SDS Invoice AI</h2>
-          <Select
-            options={options}
-            onChange={(val) => setSelectedAgency(val as Option)}
-            value={selectedAgency}
-            placeholder="Select your agency"
-            components={{ SingleValue: CustomSingleValue, Option: CustomOption }}
-          />
-          <input
-            type="text"
-            placeholder="Username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
+          <h2 className="login-title">Welcome to SDS Invoice AI</h2>
+          <div className="login-field">
+            <Select
+              options={options}
+              onChange={(val) => setSelectedAgency(val as Option)}
+              value={selectedAgency}
+              placeholder="Select your agency"
+              components={{ SingleValue: CustomSingleValue, Option: CustomOption }}
+            />
+          </div>
+          <div className="login-field">
+            <input
+              type="text"
+              placeholder="Username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+            />
+          </div>
+          <div className="login-field">
+            <input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
           {error && <p style={{ color: "red" }}>{error}</p>}
-          <button onClick={handleLogin}>Log In</button>
+          <div style={{ textAlign: "center", marginTop: "20px" }}>
+            <button onClick={handleLogin}>Log In</button>
+          </div>
         </>
       ) : (
         <div>
