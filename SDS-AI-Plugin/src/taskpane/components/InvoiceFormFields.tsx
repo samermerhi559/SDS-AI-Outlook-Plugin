@@ -1,4 +1,3 @@
-// ✅ InvoiceFormFields.tsx — layout reordered & dynamic tax-excluded calculation
 import React, { useMemo, useState, useEffect } from "react";
 import Select from "react-select";
 
@@ -41,19 +40,32 @@ interface Props {
   setResponseFields?: (fields: InvoiceFields) => void;
 }
 
-const InvoiceFormFields: React.FC<Props> = ({ responseFields, currencies, masterData, setResponseFields }) => {
+const InvoiceFormFields: React.FC<Props> = ({
+  responseFields,
+  currencies,
+  masterData,
+  setResponseFields
+}) => {
+  const formatNumber = (num: number): string =>
+    num.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
   const [selectedTaxCodes, setSelectedTaxCodes] = useState<string[]>([]);
   const [customTaxAmounts, setCustomTaxAmounts] = useState<Record<string, number>>({});
-  const [taxExcludedAmount, setTaxExcludedAmount] = useState<number>(0);
+  const [taxExcludedAmount, setTaxExcludedAmount] = useState<number>(responseFields.totalAmount);
+  const [tempTotal, setTempTotal] = useState<string>(formatNumber(responseFields.totalAmount));
 
   const fieldGroups: string[][] = [
     ["invoiceNumber", "fileNumber"],
     ["invoiceDate", "dueDate"],
+    ["invoiceCurrency"],
     ["invoiceIssuerNameOnly"],
     ["invoiceTitle"],
     ["invoiceDetailSummary"],
     ["accountNumber"],
-    ["costCenter"] // "totalAmount" moved to bottom
+    ["costCenter"]
   ];
 
   const formatLabel = (field: string) =>
@@ -63,9 +75,7 @@ const InvoiceFormFields: React.FC<Props> = ({ responseFields, currencies, master
     const taxLines = masterData.filter((item) => item.groupe === "Taxes");
     const grouped: Record<string, MasterDataItem[]> = {};
     for (const item of taxLines) {
-      if (!grouped[item.textValue]) {
-        grouped[item.textValue] = [];
-      }
+      if (!grouped[item.textValue]) grouped[item.textValue] = [];
       grouped[item.textValue].push(item);
     }
     return grouped;
@@ -82,9 +92,7 @@ const InvoiceFormFields: React.FC<Props> = ({ responseFields, currencies, master
     options.find((opt) => opt.value === value) || null;
 
   const handleFieldChange = (field: keyof InvoiceFields, value: string | number) => {
-    if (setResponseFields) {
-      setResponseFields({ ...responseFields, [field]: value });
-    }
+    if (setResponseFields) setResponseFields({ ...responseFields, [field]: value });
   };
 
   const toggleTaxCode = (code: string) => {
@@ -95,23 +103,54 @@ const InvoiceFormFields: React.FC<Props> = ({ responseFields, currencies, master
   };
 
   const handleTaxAmountChange = (code: string, value: string) => {
-    const numericValue = parseFloat(value);
-    setCustomTaxAmounts((prev) => ({ ...prev, [code]: isNaN(numericValue) ? 0 : numericValue }));
+    const numericValue = parseFloat(value.replace(/,/g, ""));
+    setCustomTaxAmounts((prev) => ({
+      ...prev,
+      [code]: isNaN(numericValue) ? 0 : numericValue,
+    }));
+  };
+
+  const handleTotalAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setTempTotal(e.target.value);
+  };
+
+  const handleTotalAmountBlur = () => {
+    const parsed = parseFloat(tempTotal.replace(/,/g, ""));
+    const validValue = isNaN(parsed) ? 0 : parsed;
+    setTempTotal(formatNumber(validValue));
+    handleFieldChange("totalAmount", validValue);
   };
 
   useEffect(() => {
-    const totalCustom = selectedTaxCodes.reduce((sum, code) => sum + (customTaxAmounts[code] || 0), 0);
-    setTaxExcludedAmount(responseFields.totalAmount - totalCustom);
-  }, [customTaxAmounts, responseFields.totalAmount, selectedTaxCodes]);
+    if (selectedTaxCodes.length === 0) {
+      setTaxExcludedAmount(responseFields.totalAmount);
+      return;
+    }
+
+    const totalRate = selectedTaxCodes
+      .map(code => masterData.find(item => item.groupe === "Taxes" && item.code === code)?.doubleValue ?? 0)
+      .reduce((a, b) => a + b, 0);
+
+    const base = responseFields.totalAmount / (1 + totalRate);
+
+    const totalCustom = selectedTaxCodes.reduce((sum, code) => {
+      const rate = masterData.find(item => item.groupe === "Taxes" && item.code === code)?.doubleValue ?? 0;
+      const fallback = base * rate;
+      const value = customTaxAmounts[code] ?? fallback;
+      return sum + value;
+    }, 0);
+
+    const excluded = responseFields.totalAmount - totalCustom;
+    setTaxExcludedAmount(excluded >= 0 ? excluded : 0);
+  }, [customTaxAmounts, responseFields.totalAmount, selectedTaxCodes, masterData]);
 
   return (
     <div className="invoice-fields">
       {fieldGroups.map((row, index) => (
         <div className="field-pair" key={index}>
           {row.map((field) => {
-            const value = typeof responseFields[field as keyof InvoiceFields] === "object"
-              ? ""
-              : responseFields[field as keyof InvoiceFields] ?? "";
+            let value = responseFields[field as keyof InvoiceFields];
+            if (typeof value === "string" && value.includes("T")) value = value.split("T")[0];
 
             return (
               <div key={field}>
@@ -119,7 +158,7 @@ const InvoiceFormFields: React.FC<Props> = ({ responseFields, currencies, master
                 {field === "invoiceCurrency" ? (
                   <Select
                     options={currencies.map((cur) => ({ value: cur, label: cur }))}
-                    value={{ value: value, label: value }}
+                    value={{ value: value as string, label: value as string }}
                     onChange={(opt) => {
                       const newValue = opt?.value;
                       if (typeof newValue === "string" || typeof newValue === "number") {
@@ -129,6 +168,7 @@ const InvoiceFormFields: React.FC<Props> = ({ responseFields, currencies, master
                     isClearable
                     isSearchable
                     aria-label="Invoice Currency"
+                    placeholder="Choose a currency"
                   />
                 ) : field === "invoiceIssuerNameOnly" ? (
                   <Select
@@ -143,6 +183,7 @@ const InvoiceFormFields: React.FC<Props> = ({ responseFields, currencies, master
                     isClearable
                     isSearchable
                     aria-label="Supplier"
+                    placeholder="Choose a supplier"
                   />
                 ) : field === "costCenter" ? (
                   <Select
@@ -174,15 +215,15 @@ const InvoiceFormFields: React.FC<Props> = ({ responseFields, currencies, master
                   />
                 ) : (
                   <input
-                    type={field.toLowerCase().includes("date")
-                      ? "date"
-                      : field.toLowerCase().includes("amount")
-                      ? "number"
-                      : "text"}
-                    value={typeof value === "string" || typeof value === "number" ? value : ""}
+                    type={field.toLowerCase().includes("date") ? "date" : "text"}
+                    value={
+                      typeof value === "string" && value.includes("T")
+                        ? value.split("T")[0]
+                        : (value as string)
+                    }
                     onChange={(e) => handleFieldChange(field as keyof InvoiceFields, e.target.value)}
-                    placeholder={`Enter ${formatLabel(field).toLowerCase()}`}
-                    title={formatLabel(field)}
+                    title={`Enter ${formatLabel(field)}`}
+                    placeholder={`Enter ${formatLabel(field)}`}
                   />
                 )}
               </div>
@@ -191,7 +232,6 @@ const InvoiceFormFields: React.FC<Props> = ({ responseFields, currencies, master
         </div>
       ))}
 
-      {/* ✅ Tax Section */}
       {Object.keys(taxGroups).length > 0 && (
         <div className="tax-code-checkboxes" style={{ marginTop: "2rem" }}>
           <h4>Tax Codes</h4>
@@ -215,50 +255,57 @@ const InvoiceFormFields: React.FC<Props> = ({ responseFields, currencies, master
         </div>
       )}
 
-      {selectedTaxCodes.length > 0 && (
-        <div style={{ marginTop: "2rem" }}>
-          <h4>Tax Calculation Summary</h4>
-          <div className="field-pair">
-            <label>Total Amount (Excl. Tax)</label>
-            <input
-              type="number"
-              value={taxExcludedAmount.toFixed(2)}
-              disabled
-              title="Total Amount Excluding Tax"
-              placeholder="Total Amount Excluding Tax"
-            />
-          </div>
-          {selectedTaxCodes.map(code => {
-            const taxItem = masterData.find(item => item.groupe === "Taxes" && item.code === code);
-            const rate = taxItem?.doubleValue ?? 0;
-            const totalRate = selectedTaxCodes
-              .map(code => masterData.find(item => item.groupe === "Taxes" && item.code === code)?.doubleValue ?? 0)
-              .reduce((a, b) => a + b, 0);
-            const base = responseFields.totalAmount / (1 + totalRate);
-            const calculated = base * rate;
-            const value = customTaxAmounts[code] ?? calculated;
+      <div style={{ marginTop: "2rem" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <tbody>
+            <tr>
+              <td style={{ width: "30%", textAlign: "right", paddingRight: "8px" }}>
+                Total Amount (Excl. Tax):
+              </td>
+              <td style={{ width: "70%", textAlign: "right" }}>
+                <input type="text" value={formatNumber(taxExcludedAmount)} disabled title="Total Amount (Excl. Tax)" />
+              </td>
+            </tr>
 
-            return (
-              <div key={code} className="field-pair">
-                <label>{`Tax [${code}] (${(rate * 100).toFixed(1)}%)`}</label>
+            {selectedTaxCodes.map((code) => {
+              const taxItem = masterData.find(item => item.groupe === "Taxes" && item.code === code);
+              const rate = taxItem?.doubleValue ?? 0;
+              const totalRate = selectedTaxCodes
+                .map(code => masterData.find(item => item.groupe === "Taxes" && item.code === code)?.doubleValue ?? 0)
+                .reduce((a, b) => a + b, 0);
+              const base = responseFields.totalAmount / (1 + totalRate);
+              const calculated = base * rate;
+              const value = customTaxAmounts[code] ?? calculated;
+
+              return (
+                <tr key={code}>
+                  <td style={{ textAlign: "right", paddingRight: "8px" }}>
+                    {`Tax [${code}] (${(rate * 100).toFixed(1)}%)`}:
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    <input
+                      type="text"
+                      value={formatNumber(value)}
+                      onChange={(e) => handleTaxAmountChange(code, e.target.value)}
+                    />
+                  </td>
+                </tr>
+              );
+            })}
+
+            <tr>
+              <td style={{ textAlign: "right", paddingRight: "8px" }}>Total Amount (Incl. Tax):</td>
+              <td style={{ textAlign: "right" }}>
                 <input
-                  type="number"
-                  value={value.toFixed(2)}
-                  onChange={(e) => handleTaxAmountChange(code, e.target.value)}
+                  type="text"
+                  value={tempTotal}
+                  onChange={handleTotalAmountChange}
+                  onBlur={handleTotalAmountBlur}
                 />
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      <div className="field-pair" style={{ marginTop: "2rem" }}>
-        <label>Total Amount (Incl. Tax)</label>
-        <input
-          type="number"
-          value={responseFields.totalAmount}
-          onChange={(e) => handleFieldChange("totalAmount", parseFloat(e.target.value) || 0)}
-        />
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   );
