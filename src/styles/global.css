@@ -83,7 +83,12 @@ button:hover {
 }
 
 .login-field {
-  margin-bottom: 20px;
+  margin-bottom: 16px;
+}
+
+.login-container button {
+  display: block;
+  margin: 10px auto 0 auto;
 }
 
 .attachment-table table {
